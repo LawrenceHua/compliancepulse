@@ -20,6 +20,49 @@ interface AnalysisResult {
   }>;
 }
 
+// Mock analysis for demo purposes
+const getMockAnalysis = (fileName: string): AnalysisResult => ({
+  riskScore: 65,
+  summary: `Analysis of "${fileName}" reveals several clauses that warrant careful review. The intellectual property assignment is broad, and the non-compete clause may be overly restrictive for your future work.`,
+  flaggedClauses: [
+    {
+      type: "Intellectual Property",
+      severity: "high",
+      text: "All work product created by Contractor shall be the exclusive property of Client. Contractor assigns all rights, title, and interest in such work product to Client.",
+      explanation: "This clause assigns ALL rights to the client, including rights to your tools, methods, and potentially reusable components. This is overly broad and could prevent you from using similar approaches in future projects.",
+      suggestion: "Negotiate to limit assignment to the final deliverables only, excluding your pre-existing tools, methods, and general know-how. Consider adding: 'Contractor retains all rights to pre-existing materials, tools, and general methodologies used in the creation of the work product.'",
+    },
+    {
+      type: "Non-Compete",
+      severity: "high",
+      text: "Contractor agrees not to compete with Client's business for a period of 2 years following termination of this Agreement.",
+      explanation: "A 2-year non-compete is lengthy and may be unenforceable in many jurisdictions, but could still create legal headaches. It could prevent you from working with similar clients in your specialty.",
+      suggestion: "Request removal or reduction to 6 months. If the client insists, ask for geographic limitations and specific definition of 'competing' services. Alternatively, offer a non-solicitation clause (won't solicit their clients) instead.",
+    },
+    {
+      type: "Payment Terms",
+      severity: "medium",
+      text: "Client agrees to pay Contractor within 30 days of invoice submission. Late payments subject to 1.5% monthly service charge.",
+      explanation: "Net 30 is standard but can strain cash flow. The late fee is reasonable, but you have no recourse if they simply don't pay.",
+      suggestion: "Consider requesting Net 15 for faster payment. Add a clause allowing you to pause work if payment is more than 15 days overdue. Consider requiring a 25-50% deposit upfront for new clients.",
+    },
+    {
+      type: "Indemnification",
+      severity: "medium",
+      text: "Contractor shall indemnify and hold harmless Client from any claims arising from Contractor's work.",
+      explanation: "This makes you solely responsible for any legal claims related to your work, even if the claim is frivolous or the client's fault. Legal defense costs can be substantial.",
+      suggestion: "Add mutual indemnification or limit your liability to the amount paid under the contract. Consider: 'Each party's liability shall be limited to the total amount paid or payable under this Agreement.'",
+    },
+    {
+      type: "Termination",
+      severity: "low",
+      text: "Either party may terminate this Agreement with 7 days written notice.",
+      explanation: "Short notice period means little job security. Client could terminate with minimal notice, leaving you scrambling to replace the income.",
+      suggestion: "Request 30 days notice for termination without cause. This provides more stability. You can offer a shorter notice period (7-14 days) if termination is for cause.",
+    },
+  ],
+});
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -38,6 +81,7 @@ export default function Home() {
       if (validTypes.includes(selectedFile.type) || selectedFile.name.endsWith('.pdf') || selectedFile.name.endsWith('.doc') || selectedFile.name.endsWith('.docx')) {
         setFile(selectedFile);
         setError(null);
+        setResult(null);
       } else {
         setError("Please upload a PDF, Word document, or text file.");
       }
@@ -50,26 +94,12 @@ export default function Home() {
     setAnalyzing(true);
     setResult(null);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Analysis failed");
-      }
-
-      const data = await response.json();
-      setResult(data);
-    } catch (err) {
-      setError("Failed to analyze contract. Please try again.");
-    } finally {
-      setAnalyzing(false);
-    }
+    // Return mock analysis
+    setResult(getMockAnalysis(file.name));
+    setAnalyzing(false);
   };
 
   const getRiskColor = (score: number) => {
