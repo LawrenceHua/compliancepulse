@@ -1,117 +1,71 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Upload, FileText, AlertTriangle, CheckCircle, Shield, Zap, Lock } from "lucide-react";
-
-interface AnalysisResult {
-  riskScore: number;
-  summary: string;
-  flaggedClauses: Array<{
-    type: string;
-    severity: "high" | "medium" | "low";
-    text: string;
-    explanation: string;
-    suggestion: string;
-  }>;
-}
-
-// Mock analysis for demo purposes
-const getMockAnalysis = (fileName: string): AnalysisResult => ({
-  riskScore: 65,
-  summary: `Analysis of "${fileName}" reveals several clauses that warrant careful review. The intellectual property assignment is broad, and the non-compete clause may be overly restrictive for your future work.`,
-  flaggedClauses: [
-    {
-      type: "Intellectual Property",
-      severity: "high",
-      text: "All work product created by Contractor shall be the exclusive property of Client. Contractor assigns all rights, title, and interest in such work product to Client.",
-      explanation: "This clause assigns ALL rights to the client, including rights to your tools, methods, and potentially reusable components. This is overly broad and could prevent you from using similar approaches in future projects.",
-      suggestion: "Negotiate to limit assignment to the final deliverables only, excluding your pre-existing tools, methods, and general know-how. Consider adding: 'Contractor retains all rights to pre-existing materials, tools, and general methodologies used in the creation of the work product.'",
-    },
-    {
-      type: "Non-Compete",
-      severity: "high",
-      text: "Contractor agrees not to compete with Client's business for a period of 2 years following termination of this Agreement.",
-      explanation: "A 2-year non-compete is lengthy and may be unenforceable in many jurisdictions, but could still create legal headaches. It could prevent you from working with similar clients in your specialty.",
-      suggestion: "Request removal or reduction to 6 months. If the client insists, ask for geographic limitations and specific definition of 'competing' services. Alternatively, offer a non-solicitation clause (won't solicit their clients) instead.",
-    },
-    {
-      type: "Payment Terms",
-      severity: "medium",
-      text: "Client agrees to pay Contractor within 30 days of invoice submission. Late payments subject to 1.5% monthly service charge.",
-      explanation: "Net 30 is standard but can strain cash flow. The late fee is reasonable, but you have no recourse if they simply don't pay.",
-      suggestion: "Consider requesting Net 15 for faster payment. Add a clause allowing you to pause work if payment is more than 15 days overdue. Consider requiring a 25-50% deposit upfront for new clients.",
-    },
-    {
-      type: "Indemnification",
-      severity: "medium",
-      text: "Contractor shall indemnify and hold harmless Client from any claims arising from Contractor's work.",
-      explanation: "This makes you solely responsible for any legal claims related to your work, even if the claim is frivolous or the client's fault. Legal defense costs can be substantial.",
-      suggestion: "Add mutual indemnification or limit your liability to the amount paid under the contract. Consider: 'Each party's liability shall be limited to the total amount paid or payable under this Agreement.'",
-    },
-    {
-      type: "Termination",
-      severity: "low",
-      text: "Either party may terminate this Agreement with 7 days written notice.",
-      explanation: "Short notice period means little job security. Client could terminate with minimal notice, leaving you scrambling to replace the income.",
-      suggestion: "Request 30 days notice for termination without cause. This provides more stability. You can offer a shorter notice period (7-14 days) if termination is for cause.",
-    },
-  ],
-});
+import {
+  CheckCircle,
+  AlertTriangle,
+  Calendar,
+  Bell,
+  Shield,
+  ArrowRight,
+  Clock,
+  DollarSign,
+  FileCheck,
+  Users,
+} from "lucide-react";
+import { auth, provider } from "@/lib/firebase";
+import { signInWithPopup } from "firebase/auth";
 
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      const validTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "text/plain",
-      ];
-      if (validTypes.includes(selectedFile.type) || selectedFile.name.endsWith('.pdf') || selectedFile.name.endsWith('.doc') || selectedFile.name.endsWith('.docx')) {
-        setFile(selectedFile);
-        setError(null);
-        setResult(null);
+  const deadline = new Date("2026-04-24");
+  const today = new Date();
+  const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await signInWithPopup(auth, provider);
+      router.push("/dashboard");
+    } catch (err: any) {
+      if (err.code === "auth/popup-closed-by-user") {
+        // User closed popup, don't show error
       } else {
-        setError("Please upload a PDF, Word document, or text file.");
+        setError("Failed to sign in. Please try again.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const analyzeContract = async () => {
-    if (!file) return;
-
-    setAnalyzing(true);
-    setResult(null);
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Return mock analysis
-    setResult(getMockAnalysis(file.name));
-    setAnalyzing(false);
-  };
-
-  const getRiskColor = (score: number) => {
-    if (score >= 70) return "bg-red-500";
-    if (score >= 40) return "bg-yellow-500";
-    return "bg-green-500";
-  };
-
-  const getRiskLabel = (score: number) => {
-    if (score >= 70) return "High Risk";
-    if (score >= 40) return "Medium Risk";
-    return "Low Risk";
+  const handleStartFreeTrial = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Sign in with Google first if not already signed in
+      if (!auth.currentUser) {
+        await signInWithPopup(auth, provider);
+      }
+      // Redirect to Stripe checkout
+      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to start free trial. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -121,13 +75,17 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Shield className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-slate-900">Contract Analyzer</span>
+            <span className="text-xl font-bold text-slate-900">CompliancePulse</span>
           </div>
           <nav className="flex gap-4">
             <Button variant="ghost">Features</Button>
             <Button variant="ghost">Pricing</Button>
-            <Button variant="outline">Sign In</Button>
-            <Button>Get Started</Button>
+            <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
+              Sign In
+            </Button>
+            <Button onClick={handleStartFreeTrial} disabled={loading}>
+              Start Free Trial
+            </Button>
           </nav>
         </div>
       </header>
@@ -135,256 +93,159 @@ export default function Home() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
+          <Badge variant="destructive" className="mb-4 px-4 py-1 text-sm">
+            <AlertTriangle className="h-4 w-4 mr-1" />
+            URGENT: {daysLeft} Days Left
+          </Badge>
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            AI-Powered Contract Review
+            ADA Title II Deadline:
             <br />
-            <span className="text-blue-600">for Freelancers</span>
+            <span className="text-red-600">April 24, 2026 — Are you ready?</span>
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Upload your contracts and get instant AI analysis. Identify risky clauses, 
-            understand terms, and protect yourself before signing.
+            15 days left. Non-compliance = lawsuits + $75K-$150K fines. Don&apos;t let your
+            business become a statistic.
           </p>
         </div>
 
-        {/* Upload Section */}
-        <Card className="max-w-2xl mx-auto">
+        {/* How It Works */}
+        <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-16">
+          <Card className="text-center border-2 border-blue-100">
+            <CardHeader>
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+              <CardTitle>1. Create Account</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600">Sign up in 30 seconds with Google. No credit card required to start.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center border-2 border-blue-100">
+            <CardHeader>
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileCheck className="h-6 w-6 text-blue-600" />
+              </div>
+              <CardTitle>2. Get Your Checklist</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600">Answer a few questions about your business. Get a personalized ADA compliance checklist.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="text-center border-2 border-blue-100">
+            <CardHeader>
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Bell className="h-6 w-6 text-blue-600" />
+              </div>
+              <CardTitle>3. Set Reminders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600">We&apos;ll send you email reminders before each compliance deadline.</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Pricing */}
+        <Card className="max-w-md mx-auto border-2 border-blue-500">
           <CardHeader>
-            <CardTitle>Analyze Your Contract</CardTitle>
-            <CardDescription>
-              Upload a PDF or Word document to get started. Free plan includes 3 analyses per month.
-            </CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>CompliancePulse Starter</CardTitle>
+                <CardDescription>Everything you need for ADA Title II compliance</CardDescription>
+              </div>
+              <Badge className="bg-blue-500">Most Popular</Badge>
+            </div>
+            <div className="text-3xl font-bold mt-4">
+              $49<span className="text-lg font-normal text-slate-500">/month</span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  file ? "border-blue-500 bg-blue-50" : "border-slate-300 hover:border-slate-400"
-                }`}
-              >
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="contract-upload"
-                />
-                <label htmlFor="contract-upload" className="cursor-pointer">
-                  <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                  <p className="text-slate-600 mb-2">
-                    {file ? file.name : "Drop your contract here or click to browse"}
-                  </p>
-                  <p className="text-sm text-slate-400">
-                    Supports PDF, Word, and text files
-                  </p>
-                </label>
+            <ul className="space-y-3">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>ADA Title II compliance checklist</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>Email reminders before deadlines</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>1 business coverage</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>WCAG 2.1 AA guidance</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>Compliance health score tracking</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>Priority support</span>
+              </li>
+            </ul>
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
               </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
+            )}
+            <Button
+              className="w-full mt-6"
+              size="lg"
+              onClick={handleStartFreeTrial}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4 animate-pulse" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
               )}
-
-              <Button
-                onClick={analyzeContract}
-                disabled={!file || analyzing}
-                className="w-full"
-                size="lg"
-              >
-                {analyzing ? (
-                  <>
-                    <Zap className="mr-2 h-4 w-4 animate-pulse" />
-                    Analyzing with AI...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Analyze Contract
-                  </>
-                )}
-              </Button>
-            </div>
+            </Button>
+            <p className="text-xs text-slate-500 mt-3 text-center">
+              14-day free trial. Cancel anytime.
+            </p>
           </CardContent>
         </Card>
-
-        {/* Results Section */}
-        {result && (
-          <div className="max-w-4xl mx-auto mt-12 space-y-6">
-            {/* Risk Score */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Risk Assessment
-                  <Badge
-                    className={`${getRiskColor(result.riskScore)} text-white`}
-                  >
-                    {getRiskLabel(result.riskScore)}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <span>Risk Score</span>
-                    <span className="font-medium">{result.riskScore}/100</span>
-                  </div>
-                  <Progress value={result.riskScore} className="h-3" />
-                  <p className="text-slate-600">{result.summary}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Flagged Clauses */}
-            {result.flaggedClauses.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Flagged Clauses</CardTitle>
-                  <CardDescription>
-                    Review these clauses carefully before signing
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {result.flaggedClauses.map((clause, index) => (
-                      <Alert
-                        key={index}
-                        variant={clause.severity === "high" ? "destructive" : "default"}
-                        className="border-l-4"
-                        style={{
-                          borderLeftColor:
-                            clause.severity === "high"
-                              ? "#ef4444"
-                              : clause.severity === "medium"
-                              ? "#f59e0b"
-                              : "#22c55e",
-                        }}
-                      >
-                        <div className="flex items-start gap-2">
-                          {clause.severity === "high" ? (
-                            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
-                          ) : (
-                            <CheckCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
-                          )}
-                          <div className="flex-1">
-                            <AlertTitle className="flex items-center gap-2">
-                              {clause.type}
-                              <Badge
-                                variant={
-                                  clause.severity === "high"
-                                    ? "destructive"
-                                    : "secondary"
-                                }
-                              >
-                                {clause.severity}
-                              </Badge>
-                            </AlertTitle>
-                            <AlertDescription className="mt-2 space-y-2">
-                              <p className="text-sm italic bg-slate-100 p-2 rounded">
-                                &ldquo;{clause.text}&rdquo;
-                              </p>
-                              <p>{clause.explanation}</p>
-                              <div className="bg-blue-50 p-3 rounded-lg mt-2">
-                                <p className="text-sm font-medium text-blue-900">
-                                  Suggested Edit:
-                                </p>
-                                <p className="text-sm text-blue-800">
-                                  {clause.suggestion}
-                                </p>
-                              </div>
-                            </AlertDescription>
-                          </div>
-                        </div>
-                      </Alert>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
       </section>
 
-      {/* Pricing Section */}
-      <section className="bg-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-900">Simple Pricing</h2>
-            <p className="text-slate-600 mt-2">Choose the plan that works for you</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Free Plan */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Free</CardTitle>
-                <CardDescription>For occasional contract reviews</CardDescription>
-                <div className="text-3xl font-bold mt-4">$0</div>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>3 contract analyses per month</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Basic risk assessment</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Email support</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full mt-6">
-                  Get Started
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Pro Plan */}
-            <Card className="border-blue-500 border-2">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle>Pro</CardTitle>
-                    <CardDescription>For freelancers & agencies</CardDescription>
-                  </div>
-                  <Badge className="bg-blue-500">Popular</Badge>
-                </div>
-                <div className="text-3xl font-bold mt-4">
-                  $29<span className="text-lg font-normal text-slate-500">/month</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Unlimited contract analyses</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Advanced risk assessment</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Redline suggestions</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Contract history & storage</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Priority support</span>
-                  </li>
-                </ul>
-                <Button className="w-full mt-6">
-                  Upgrade to Pro
-                </Button>
-              </CardContent>
-            </Card>
+      {/* Urgency Section */}
+      <section className="bg-red-50 py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <AlertTriangle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+          <h2 className="text-3xl font-bold text-slate-900 mb-4">
+            The Clock is Ticking
+          </h2>
+          <p className="text-lg text-slate-600 mb-8">
+            ADA Title II web accessibility requirements apply to ALL state and local government websites.
+            Private businesses serving the public are also increasingly targeted. The average lawsuit costs
+            $75K-$150K in legal fees + settlements.
+          </p>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <DollarSign className="h-8 w-8 text-red-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-slate-900">$75K-$150K</div>
+              <div className="text-sm text-slate-600">Potential fines per violation</div>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <Calendar className="h-8 w-8 text-red-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-slate-900">15 Days</div>
+              <div className="text-sm text-slate-600">Until April 24 deadline</div>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <Clock className="h-8 w-8 text-red-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-slate-900">2-4 Hours</div>
+              <div className="text-sm text-slate-600">Time to get compliant</div>
+            </div>
           </div>
         </div>
       </section>
@@ -395,15 +256,15 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center gap-2 mb-4 md:mb-0">
               <Shield className="h-6 w-6 text-blue-500" />
-              <span className="text-lg font-bold text-white">Contract Analyzer</span>
+              <span className="text-lg font-bold text-white">CompliancePulse</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Lock className="h-4 w-4" />
-              <span>Your contracts are secure and never stored permanently</span>
+              <CheckCircle className="h-4 w-4" />
+              <span>Your compliance data is secure and never shared</span>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-slate-800 text-center text-sm">
-            © 2026 Contract Analyzer by Huadini. All rights reserved.
+            © 2026 CompliancePulse by Huadini. All rights reserved.
           </div>
         </div>
       </footer>

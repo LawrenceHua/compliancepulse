@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  distDir: 'dist',
+  output: "export",
   images: {
     unoptimized: true,
   },
+  distDir: "out",
 };
 
 export default nextConfig;

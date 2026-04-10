@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Contract Analyzer - AI-Powered Contract Review for Freelancers",
-  description: "Upload your contracts and get instant AI analysis. Identify risky clauses, understand terms, and protect yourself before signing.",
+  title: "CompliancePulse - Never miss a compliance deadline again",
+  description: "AI-powered compliance calendar for regulated SMBs. ADA Title II deadline April 24, 2026 — 15 days left. Non-compliance = lawsuits + $75K-$150K fines.",
 };
 
 export default function RootLayout({
@@ -16,9 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
